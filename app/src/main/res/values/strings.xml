@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ایستا</string>
+    <string name="alert_title">زمان ایستادن و کشش بدنی!</string>
+    <string name="alert_message">بیش از حد معین نشسته‌اید. لطفاً بایستید و تمرینات کششی را انجام دهید.</string>
+</resources>

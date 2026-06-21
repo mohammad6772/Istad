@@ -1,5 +1,5 @@
 {
-  "name": "ایستاد | یادآور جلوگیری از نشستن",
+  "name": "ایستا",
   "description": "یک اپلیکیشن سلامتی و ارگونومی هوشمند جهت جلوگیری از نشستن طولانی روی صندلی، مانیتور کردن آمار به همراه تمرینات فیزیوتراپی دیسک کمر.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

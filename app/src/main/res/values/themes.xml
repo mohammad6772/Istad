@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Istad" parent="android:Theme.Material.NoActionBar">
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">#1E2022</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <!-- Navigation bar color -->
+        <item name="android:navigationBarColor">#1E2022</item>
+    </style>
+</resources>
