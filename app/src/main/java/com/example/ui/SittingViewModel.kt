@@ -118,6 +118,13 @@ class SittingViewModel(private val repository: SittingRepository) : ViewModel() 
         context.startService(intent)
     }
 
+    fun snoozeAlarm(context: Context) {
+        val intent = Intent(context, TrackingService::class.java).apply {
+            action = TrackingService.ACTION_SNOOZE
+        }
+        context.startService(intent)
+    }
+
     fun clearAllHistory() {
         viewModelScope.launch {
             repository.clearAll()

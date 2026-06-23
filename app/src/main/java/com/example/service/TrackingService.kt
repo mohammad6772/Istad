@@ -40,6 +40,7 @@ class TrackingService : Service(), SensorEventListener {
         const val ACTION_SWITCH = "ACTION_SWITCH"
         const val ACTION_UPDATE_LIMIT = "ACTION_UPDATE_LIMIT"
         const val ACTION_PREVIEW = "ACTION_PREVIEW"
+        const val ACTION_SNOOZE = "ACTION_SNOOZE"
 
         const val EXTRA_IS_SITTING = "EXTRA_IS_SITTING"
         const val EXTRA_LIMIT_MINUTES = "EXTRA_LIMIT_MINUTES"
@@ -52,6 +53,7 @@ class TrackingService : Service(), SensorEventListener {
         val isAutoDetectMotion = MutableStateFlow(true)
         val soundSelected = MutableStateFlow("default") // "default", "gong", "beep", "piano"
         val hasExceededLimit = MutableStateFlow(false)
+        val snoozeSecondsState = MutableStateFlow(0L)
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -112,6 +114,9 @@ class TrackingService : Service(), SensorEventListener {
                     playSynthesizedSound(previewSound)
                 }
             }
+            ACTION_SNOOZE -> {
+                snoozeAlarm()
+            }
         }
 
         return START_NOT_STICKY
@@ -126,6 +131,8 @@ class TrackingService : Service(), SensorEventListener {
         isSittingState.value = isSitting
         elapsedSeconds.value = 0L
         hasExceededLimit.value = false
+        snoozeSecondsState.value = 0L
+        stopAlarmLoop()
         sessionStartTime = System.currentTimeMillis()
 
         // Sync sensor registrations
@@ -148,6 +155,8 @@ class TrackingService : Service(), SensorEventListener {
         isSittingState.value = newIsSitting
         elapsedSeconds.value = 0L
         hasExceededLimit.value = false
+        snoozeSecondsState.value = 0L
+        stopAlarmLoop()
         sessionStartTime = System.currentTimeMillis()
 
         if (newIsSitting && isAutoDetectMotion.value) {
@@ -168,10 +177,10 @@ class TrackingService : Service(), SensorEventListener {
 
                 // Exceed checking
                 if (isSittingState.value && !hasExceededLimit.value) {
-                    val limitSeconds = limitMinutesState.value * 60L
+                    val limitSeconds = limitMinutesState.value * 60L + snoozeSecondsState.value
                     if (elapsedSeconds.value >= limitSeconds) {
                         hasExceededLimit.value = true
-                        triggerAlertSound()
+                        startAlarmLoop()
                     }
                 }
                 updateNotification()
@@ -179,10 +188,38 @@ class TrackingService : Service(), SensorEventListener {
         }
     }
 
-    private fun triggerAlertSound() {
-        serviceScope.launch(Dispatchers.IO) {
-            playSynthesizedSound(soundSelected.value)
+    private var alarmJob: Job? = null
+    private var activeRingtone: android.media.Ringtone? = null
+
+    private fun startAlarmLoop() {
+        alarmJob?.cancel()
+        alarmJob = serviceScope.launch(Dispatchers.IO) {
+            while (isActive && hasExceededLimit.value && isSittingState.value && isServiceActive.value) {
+                playSynthesizedSound(soundSelected.value)
+                val sleepTime = if (soundSelected.value == "gong") 4500L
+                                else if (soundSelected.value == "piano") 3500L
+                                else 2500L
+                delay(sleepTime)
+            }
         }
+    }
+
+    private fun stopAlarmLoop() {
+        alarmJob?.cancel()
+        alarmJob = null
+        try {
+            activeRingtone?.stop()
+            activeRingtone = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun snoozeAlarm() {
+        snoozeSecondsState.value += 5 * 60L
+        hasExceededLimit.value = false
+        stopAlarmLoop()
+        updateNotification()
     }
 
     private fun playSynthesizedSound(type: String) {
@@ -190,6 +227,8 @@ class TrackingService : Service(), SensorEventListener {
             try {
                 val uri = android.net.Uri.parse(type)
                 val ringtone = android.media.RingtoneManager.getRingtone(applicationContext, uri)
+                activeRingtone?.stop()
+                activeRingtone = ringtone
                 ringtone?.play()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -308,6 +347,8 @@ class TrackingService : Service(), SensorEventListener {
         isServiceActive.value = false
         elapsedSeconds.value = 0L
         hasExceededLimit.value = false
+        snoozeSecondsState.value = 0L
+        stopAlarmLoop()
         tickerJob?.cancel()
 
         unregisterAccelerometer()
@@ -408,30 +449,73 @@ class TrackingService : Service(), SensorEventListener {
         )
 
         val durationFormatted = formatDuration(elapsedSeconds.value)
-        val modeText = if (isSittingState.value) "نشسته" else "ایستاده"
-        val statusText = "شما در حالت $modeText هستید • مدت: $durationFormatted"
+        val modeText = if (isSittingState.value) {
+            if (com.example.util.Localization.isFarsi()) "نشسته" else "Sitting"
+        } else {
+            if (com.example.util.Localization.isFarsi()) "ایستاده" else "Standing"
+        }
+        val statusText = if (com.example.util.Localization.isFarsi()) {
+            if (snoozeSecondsState.value > 0 && isSittingState.value) {
+                "شما در حالت $modeText هستید • مدت: $durationFormatted (تأخیر فعال)"
+            } else {
+                "شما در حالت $modeText هستید • مدت: $durationFormatted"
+            }
+        } else {
+            if (snoozeSecondsState.value > 0 && isSittingState.value) {
+                "Active state: $modeText • Time: $durationFormatted (Snoozed)"
+            } else {
+                "Active state: $modeText • Time: $durationFormatted"
+            }
+        }
 
-        val title = if (hasExceededLimit.value) "⚠️ خطر نشستن طولانی!" else "طرح سلامت کمر ایستاد"
+        val title = if (hasExceededLimit.value) {
+            if (com.example.util.Localization.isFarsi()) "⚠️ خطر نشستن طولانی!" else "⚠️ Prolonged Sitting Alert!"
+        } else {
+            if (com.example.util.Localization.isFarsi()) "طرح سلامت کمر ایستاد" else "Ista Lumbar Protection"
+        }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(statusText)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(if (hasExceededLimit.value) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .addAction(
                 android.R.drawable.ic_menu_directions,
-                if (isSittingState.value) "بلند شدم 🚶" else "نشستم 🪑",
+                if (isSittingState.value) {
+                    if (com.example.util.Localization.isFarsi()) "بلند شدم 🚶" else "I stood up 🚶"
+                } else {
+                    if (com.example.util.Localization.isFarsi()) "نشستم 🪑" else "I sat down 🪑"
+                },
                 pSwitchIntent
             )
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                "پایان پایش",
-                pStopIntent
+
+        if (hasExceededLimit.value) {
+            val snoozeIntent = Intent(this, TrackingService::class.java).apply {
+                action = ACTION_SNOOZE
+            }
+            val pSnoozeIntent = PendingIntent.getService(
+                this,
+                3,
+                snoozeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            .build()
+            builder.addAction(
+                android.R.drawable.ic_popup_sync,
+                if (com.example.util.Localization.isFarsi()) "تأخیر ۵ دقیقه ⏰" else "Snooze 5 Min ⏰",
+                pSnoozeIntent
+            )
+        }
+
+        builder.addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            if (com.example.util.Localization.isFarsi()) "پایان پایش" else "Stop Tracking",
+            pStopIntent
+        )
+
+        return builder.build()
     }
 
     private fun createNotificationChannel() {

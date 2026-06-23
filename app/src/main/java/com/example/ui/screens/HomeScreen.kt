@@ -174,6 +174,29 @@ fun HomeScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { viewModel.snoozeAlarm(context) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CoralWarning,
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.testTag("snooze_alarm_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = Localization.t("تأخیر آلارم (۵ دقیقه)", "Snooze Alarm (5 Min)"),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color.Black
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = Localization.t("تاخیر ۵ دقیقه ⏰", "Snooze 5 Mins ⏰"),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
