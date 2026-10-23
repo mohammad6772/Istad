@@ -8,7 +8,7 @@ plugins {
 android {
 
 signingConfigs {
-    release {
+    create("release") {
         storeFile = file("Ista-MN-release-key.jks")
         storePassword = "Mohammad6772N"
         keyAlias = "my-key-alias"
@@ -34,6 +34,7 @@ signingConfigs {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
