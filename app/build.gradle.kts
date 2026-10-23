@@ -6,6 +6,16 @@ plugins {
 }
 
 android {
+
+signingConfigs {
+    release {
+        storeFile = file("Ista-MN-release-key.jks")
+        storePassword = "Mohammad6772N"
+        keyAlias = "my-key-alias"
+        keyPassword = "Mohammad6772N"
+    }
+}
+
     namespace = "com.example"
     compileSdk = 34
 
